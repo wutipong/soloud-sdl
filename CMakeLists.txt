@@ -9,8 +9,8 @@ project(soloud-sdl)
 # add the executable
 add_executable(soloud-sdl "main.cpp" )
 
-target_compile_features(soloud-sdl PRIVATE cxx_std_17)
-set_property(TARGET soloud-sdl PROPERTY CXX_STANDARD 17)
+target_compile_features(soloud-sdl PRIVATE cxx_std_20)
+set_property(TARGET soloud-sdl PROPERTY CXX_STANDARD 20)
 set_property(TARGET soloud-sdl PROPERTY CXX_STANDARD_REQUIRED ON)
 
 if (MSVC)
