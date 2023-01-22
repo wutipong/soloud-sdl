@@ -2,6 +2,10 @@
 #include <imgui.h>
 #include <imgui_impl_sdl.h>
 #include <imgui_impl_sdlrenderer.h>
+#include <imfilebrowser.h>
+
+#include <soloud.h>
+#include <soloud_wavstream.h>
 
 int main(int argc, char **argv)
 {
@@ -17,6 +21,17 @@ int main(int argc, char **argv)
     ImGui::CreateContext();
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer_Init(renderer);
+
+    SoLoud::Soloud soloud;
+    SoLoud::WavStream wavs_stream;
+    SoLoud::handle handle{};
+    bool wav_valid = false;
+
+    soloud.init();
+
+    ImGui::FileBrowser file_browser;
+    file_browser.SetTitle("Open");
+    file_browser.SetTypeFilters({".ogg", ".wav", "mp3", ".flac"});
 
     while (true)
     {
@@ -52,7 +67,10 @@ int main(int argc, char **argv)
                 {
                     if(ImGui::BeginMenu("File"))
                     {
-                        ImGui::MenuItem("Open");
+                        if(ImGui::MenuItem("Open"))
+                        {
+                            file_browser.Open();
+                        }
                         ImGui::Separator();
                         if (ImGui::MenuItem("Exit", "Alt+F4"))
                         {
@@ -64,6 +82,20 @@ int main(int argc, char **argv)
                     ImGui::EndMenuBar();
                 }
                 ImGui::End();
+
+                file_browser.Display();
+                if (file_browser.HasSelected())
+                {
+                    auto path = file_browser.GetSelected();
+                    if (wav_valid)
+                    {
+                        soloud.stopAudioSource(wavs_stream);
+                    }
+                    auto result = wavs_stream.load(path.string().c_str());
+                    wav_valid = true;
+                    handle = soloud.play(wavs_stream);
+                    file_browser.ClearSelected();
+                }
             }
             ImGui::EndFrame();
         }
@@ -72,7 +104,8 @@ int main(int argc, char **argv)
         SDL_RenderPresent(renderer);
         SDL_Delay(0);
     }
-
+    soloud.stopAll();
+    soloud.deinit();
     SDL_Quit();
 
     return 0;
