@@ -23,9 +23,7 @@ int main(int argc, char **argv)
     ImGui_ImplSDLRenderer_Init(renderer);
 
     SoLoud::Soloud soloud;
-    SoLoud::WavStream wavs_stream;
-    SoLoud::handle handle{};
-    bool wav_valid = false;
+    SoLoud::WavStream wav_stream;
 
     soloud.init();
 
@@ -51,54 +49,47 @@ int main(int argc, char **argv)
         ImGui_ImplSDLRenderer_NewFrame();
 
         ImGui::NewFrame();
-
         {
-            int width, height;
-            SDL_GetWindowSize(window, &width, &height);
-
-            ImGui::SetNextWindowPos({0, 0});
-            ImGui::SetNextWindowSize({static_cast<float>(width), static_cast<float>(height)});
-
-            ImGui::Begin("main window", nullptr,
-                         ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                             ImGuiWindowFlags_NoTitleBar);
+            ImGui::Begin("BGM");
             {
-                if(ImGui::BeginMenuBar())
-                {
-                    if(ImGui::BeginMenu("File"))
-                    {
-                        if(ImGui::MenuItem("Open"))
-                        {
-                            file_browser.Open();
-                        }
-                        ImGui::Separator();
-                        if (ImGui::MenuItem("Exit", "Alt+F4"))
-                        {
-                            SDL_Event quit_event = {.type = SDL_QUIT};
-                            SDL_PushEvent(&quit_event);
-                        }
-                        ImGui::EndMenu();
-                    }
-                    ImGui::EndMenuBar();
-                }
-                ImGui::End();
+                ImGui::NewLine();
 
-                file_browser.Display();
-                if (file_browser.HasSelected())
+                ImGui::SameLine();
+                if (ImGui::Button("Open"))
                 {
-                    auto path = file_browser.GetSelected();
-                    if (wav_valid)
-                    {
-                        soloud.stopAudioSource(wavs_stream);
-                    }
-                    auto result = wavs_stream.load(path.string().c_str());
-                    wav_valid = true;
-                    handle = soloud.play(wavs_stream);
-                    file_browser.ClearSelected();
+                    file_browser.Open();
                 }
+                ImGui::SameLine();
+                if (ImGui::Button("Play"))
+                {
+                    soloud.play(wav_stream);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Stop"))
+                {
+                    soloud.stopAudioSource(wav_stream);
+                }
+
+                ImGui::LabelText("Filename", "%s", wav_stream.mFilename);
+                
             }
-            ImGui::EndFrame();
+            ImGui::End();
+
+
+            file_browser.Display();
+            if (file_browser.HasSelected())
+            {
+                auto path = file_browser.GetSelected();
+
+                soloud.stopAudioSource(wav_stream);
+
+                wav_stream.load(path.string().c_str());
+                file_browser.ClearSelected();
+            }
+
         }
+        ImGui::EndFrame();
+
         ImGui::Render();
         ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
         SDL_RenderPresent(renderer);
