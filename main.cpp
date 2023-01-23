@@ -7,8 +7,68 @@
 #include <imfilebrowser.h>
 
 #include <soloud.h>
+#include <soloud_file.h>
 #include <soloud_wav.h>
 #include <soloud_wavstream.h>
+
+#include <fstream>
+#include <filesystem>
+
+class FileSystemFile : public SoLoud::File
+{
+public:
+    FileSystemFile() = default;
+    FileSystemFile(const FileSystemFile &) = delete;
+    FileSystemFile &operator=(const FileSystemFile &) = delete;
+
+    void open(std::filesystem::path path);
+    void close();
+
+    std::filesystem::path &path() { return path_; }
+
+    int eof() override;
+    unsigned int read(unsigned char *aDst, unsigned int aBytes) override;
+    unsigned int length() override;
+    void seek(int aOffset) override;
+    unsigned int pos() override;
+
+private:
+    std::basic_ifstream<unsigned char> stream_;
+    std::filesystem::path path_;
+};
+
+void FileSystemFile::open(std::filesystem::path path)
+{
+    if (stream_.is_open())
+    {
+        close();
+    }
+    path_ = path;
+    stream_.open(path, std::ios::in | std::ios::binary);
+
+    stream_.seekg(0, std::ios::beg);
+}
+
+void FileSystemFile::close() { stream_.close(); }
+
+int FileSystemFile::eof() { return stream_.eof(); }
+
+unsigned int FileSystemFile::read(unsigned char *aDst, unsigned int aBytes)
+{
+    stream_.read(aDst, aBytes);
+    if (stream_.eof())
+    {
+        return static_cast<unsigned int>(stream_.gcount());
+    }
+    return aBytes;
+}
+
+unsigned int FileSystemFile::length() { return static_cast<unsigned int>(std::filesystem::file_size(path_)); }
+
+void FileSystemFile::seek(int aOffset) { stream_.seekg(aOffset); }
+
+unsigned int FileSystemFile::pos() { return static_cast<unsigned int>(stream_.tellg()); }
+
 
 int main(int argc, char **argv)
 {
@@ -37,16 +97,19 @@ int main(int argc, char **argv)
     ImGui::FileBrowser bgm_file_browser;
     bgm_file_browser.SetTitle("Open BGM");
     bgm_file_browser.SetTypeFilters({".ogg", ".wav", "mp3", ".flac"});
+    FileSystemFile bgm_file;
 
     ImGui::FileBrowser sfx_file_browser;
     sfx_file_browser.SetTitle("Open BGM");
     sfx_file_browser.SetTypeFilters({".ogg", ".wav", "mp3", ".flac"});
+    FileSystemFile sfx_file;
 
     SDL_GameController *controller = nullptr;
     if (SDL_NumJoysticks() >= 1)
     {
         controller = SDL_GameControllerOpen(0);
     }
+
 
     bool is_a_pressed = false;
     bool is_using_controller = true;
@@ -97,7 +160,7 @@ int main(int argc, char **argv)
                     soloud.stop(bgm_handle);
                 }
 
-                ImGui::LabelText("Filename", "%s", bgm_stream.mFilename);
+                ImGui::LabelText("Filename", "%s", bgm_file.path().u8string().c_str());
 
                 ImGui::SliderFloat("Volume", &bgm_volume, 0.0f, 1.0f);
                 soloud.setVolume(bgm_handle, bgm_volume);
@@ -118,7 +181,7 @@ int main(int argc, char **argv)
                 {
                     soloud.play(sfx_wav);
                 }
-
+                ImGui::LabelText("Filename", "%s", sfx_file.path().u8string().c_str());
                 if (controller)
                 {
                     ImGui::Checkbox("Use Controller", &is_using_controller);
@@ -155,7 +218,9 @@ int main(int argc, char **argv)
                 soloud.stopAudioSource(bgm_stream);
 
                 auto path = bgm_file_browser.GetSelected();
-                bgm_stream.load(path.string().c_str());
+                bgm_file.open(path);
+
+                bgm_stream.loadFile(&bgm_file);
                 bgm_file_browser.ClearSelected();
             }
 
@@ -163,8 +228,8 @@ int main(int argc, char **argv)
             if (sfx_file_browser.HasSelected())
             {
                 auto path = sfx_file_browser.GetSelected();
-
-                sfx_wav.load(path.string().c_str());
+                sfx_file.open(path);
+                sfx_wav.loadFile(&sfx_file);
                 sfx_file_browser.ClearSelected();
             }
         }
@@ -177,6 +242,9 @@ int main(int argc, char **argv)
 
         SDL_Delay(0);
     }
+
+    bgm_file.close();
+    sfx_file.close();
 
     soloud.stopAll();
     soloud.deinit();
