@@ -219,7 +219,7 @@ int main(int argc, char **argv)
                 ImGui::SameLine();
                 if (ImGui::Button("Play"))
                 {
-                    soloud.play(sfx_wav);
+                    soloud.play3d(sfx_wav, sfx_x_pos, sfx_y_pos, sfx_z_pos);
                 }
                 ImGui::LabelText("Filename", "%s", sfx_file.path().u8string().c_str());
                 if (controller)
