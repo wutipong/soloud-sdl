@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     SDL_Renderer *renderer;
 
     SDL_CreateWindowAndRenderer(1024, 768, SDL_WINDOW_RESIZABLE, &window, &renderer);
-    SDL_SetWindowTitle(window, "SoLoud-SDL test application.");
+    SDL_SetWindowTitle(window, "SoLoud-SDL Demo");
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -126,7 +126,8 @@ int main(int argc, char **argv)
     FileSystemFile sfx_file;
 
     SoLoud::Bus speech_bus;
-    SoLoud::handle speechBusHandle = soloud.play(speech_bus);
+    SoLoud::handle speech_bus_handle = soloud.play(speech_bus);
+    float speech_bus_volume = 1.0f;
     std::vector<SpeechInfo> speeches;
 
     SoLoud::EchoFilter speech_echo;
@@ -192,6 +193,7 @@ int main(int argc, char **argv)
                 ImGui::SameLine();
                 if (ImGui::Button("Play"))
                 {
+                    soloud.stop(bgm_handle);
                     bgm_handle = soloud.play(bgm_stream);
                 }
                 ImGui::SameLine();
@@ -257,7 +259,7 @@ int main(int argc, char **argv)
                 if (ImGui::Button("Pause All"))
                 {
                     is_speech_paused = !is_speech_paused;
-                    soloud.setPause(speechBusHandle, is_speech_paused);
+                    soloud.setPause(speech_bus_handle, is_speech_paused);
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Add One"))
@@ -270,6 +272,11 @@ int main(int argc, char **argv)
                     auto &speech = speeches.back();
                     speech.speech.stop();
                     speeches.pop_back();
+                }
+
+                if(ImGui::SliderFloat("Bus Volume", &speech_bus_volume, 0, 1.0f))
+                {
+                    soloud.setVolume(speech_bus_handle, speech_bus_volume);
                 }
 
                 if(ImGui::Checkbox("Echo", &speech_echo_enable))
