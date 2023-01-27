@@ -7,18 +7,18 @@
 #include <imfilebrowser.h>
 
 #include <soloud.h>
+#include <soloud_echofilter.h>
 #include <soloud_file.h>
+#include <soloud_freeverbfilter.h>
+#include <soloud_lofifilter.h>
 #include <soloud_sfxr.h>
 #include <soloud_speech.h>
 #include <soloud_wav.h>
 #include <soloud_wavstream.h>
 
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <soloud_echofilter.h>
-#include <soloud_freeverbfilter.h>
-#include <soloud_lofifilter.h>
+#include <random>
 
 class FileSystemFile : public SoLoud::File
 {
@@ -95,6 +95,10 @@ int main(int argc, char **argv)
 
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution rand(INT_MIN, INT_MAX);
+
     SoLoud::Soloud soloud;
     soloud.init();
     soloud.setVisualizationEnable(true);
@@ -123,13 +127,13 @@ int main(int argc, char **argv)
     float speech_base_declination = 0.5;
     KLATT_WAVEFORM speech_base_waveform = KW_SAW;
 
-    constexpr size_t sfxr_count = 4;
+    constexpr size_t sfxr_count = 8;
     SoLoud::Sfxr sfxrs[sfxr_count] = {};
     SoLoud::Sfxr::SFXR_PRESETS sfxr_presets[sfxr_count] = {SoLoud::Sfxr::COIN};
-    int sfxr_seeds[sfxr_count] = {std::rand(), std::rand(), std::rand(), std::rand()};
+    int sfxr_seeds[sfxr_count] = {rand(rd), rand(rd), rand(rd), rand(rd), rand(rd), rand(rd), rand(rd), rand(rd)};
     SoLoud::LofiFilter sfxr_lofi;
     sfxr_lofi.setParams(8000, 4);
-    bool sfxr_lofi_enables[sfxr_count] = {false, false, false, false};
+    bool sfxr_lofi_enables[sfxr_count] = {false, false, false, false, false, false, false, false};
 
     SoLoud::Bus sfxr_bus;
     auto sfxr_bus_handle = soloud.play(sfxr_bus);
@@ -158,6 +162,10 @@ int main(int argc, char **argv)
         bool is_b_pressed = false;
         bool is_x_pressed = false;
         bool is_y_pressed = false;
+        bool is_u_pressed = false;
+        bool is_d_pressed = false;
+        bool is_l_pressed = false;
+        bool is_r_pressed = false;
 
         bool quit = false;
 
@@ -193,6 +201,26 @@ int main(int argc, char **argv)
                 if (event.cbutton.button == SDL_CONTROLLER_BUTTON_Y)
                 {
                     is_y_pressed = true;
+                }
+
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP)
+                {
+                    is_u_pressed = true;
+                }
+
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_DOWN)
+                {
+                    is_d_pressed = true;
+                }
+
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_LEFT)
+                {
+                    is_l_pressed = true;
+                }
+
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
+                {
+                    is_r_pressed = true;
                 }
             }
         }
@@ -237,6 +265,34 @@ int main(int argc, char **argv)
                 sfxrs[3].loadPreset(sfxr_presets[3], sfxr_seeds[3]);
                 sfxrs[3].setFilter(0, sfxr_lofi_enables[3] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[3], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+
+            if (is_u_pressed)
+            {
+                sfxrs[4].loadPreset(sfxr_presets[4], sfxr_seeds[4]);
+                sfxrs[4].setFilter(0, sfxr_lofi_enables[4] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[4], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+
+            if (is_d_pressed)
+            {
+                sfxrs[5].loadPreset(sfxr_presets[5], sfxr_seeds[5]);
+                sfxrs[5].setFilter(0, sfxr_lofi_enables[5] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[5], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+
+            if (is_l_pressed)
+            {
+                sfxrs[6].loadPreset(sfxr_presets[6], sfxr_seeds[6]);
+                sfxrs[6].setFilter(0, sfxr_lofi_enables[6] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[6], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+
+            if (is_r_pressed)
+            {
+                sfxrs[7].loadPreset(sfxr_presets[7], sfxr_seeds[7]);
+                sfxrs[7].setFilter(0, sfxr_lofi_enables[7] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[7], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
         }
 
@@ -375,9 +431,11 @@ int main(int argc, char **argv)
                 ImGui::SliderFloat("Y", &sfxr_y_pos, -1.0f, 1.0f);
                 ImGui::SliderFloat("Z", &sfxr_z_pos, -1.0f, 1.0f);
 
-                constexpr const char sfxr_header_texts[sfxr_count][30]{
-                    "SFXR #1 - Controller A Button", "SFXR #2 - Controller B Button", "SFXR #3 - Controller X Button",
-                    "SFXR #4 - Controller Y Button"};
+                constexpr const char sfxr_header_texts[sfxr_count][34]{
+                    "SFXR #1 - Controller A Button",    "SFXR #2 - Controller B Button",
+                    "SFXR #3 - Controller X Button",    "SFXR #4 - Controller Y Button",
+                    "SFXR #5 - Controller UP Button",   "SFXR #6 - Controller Down Button",
+                    "SFXR #7 - Controller Left Button", "SFXR #8 - Controller Right Button"};
 
                 if (controller)
                 {
@@ -435,7 +493,7 @@ int main(int argc, char **argv)
                         ImGui::InputInt(std::format("Seed Number ##{}", i).c_str(), &sfxr_seeds[i]);
                         if (ImGui::Button(std::format("Random ##{}", i).c_str()))
                         {
-                            sfxr_seeds[i] = std::rand();
+                            sfxr_seeds[i] = rand(rd);
                         }
 
                         ImGui::Checkbox(std::format("Lo-Fi ##{}", i).c_str(), &sfxr_lofi_enables[i]);
