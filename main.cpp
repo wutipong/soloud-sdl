@@ -8,17 +8,17 @@
 
 #include <soloud.h>
 #include <soloud_file.h>
-#include <soloud_wav.h>
-#include <soloud_wavstream.h>
 #include <soloud_sfxr.h>
 #include <soloud_speech.h>
+#include <soloud_wav.h>
+#include <soloud_wavstream.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <cstdlib>
-#include <soloud_lofifilter.h>
 #include <soloud_echofilter.h>
 #include <soloud_freeverbfilter.h>
+#include <soloud_lofifilter.h>
 
 class FileSystemFile : public SoLoud::File
 {
@@ -77,19 +77,6 @@ unsigned int FileSystemFile::pos() { return static_cast<unsigned int>(stream_.te
 
 constexpr size_t text_size = 1000;
 
-struct SpeechInfo
-{
-    SoLoud::Speech speech;
-    SoLoud::handle handle = 0;
-    float volume = 1.0f;
-    float pan = 0.0f;
-    char text[text_size]{};
-    unsigned int base_freq = 1330;
-    float base_speed = 10;
-    float base_declination = 0.5;
-    KLATT_WAVEFORM base_waveform = KW_SAW;
-};
-
 int main(int argc, char **argv)
 {
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -106,7 +93,7 @@ int main(int argc, char **argv)
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer_Init(renderer);
 
-    std::srand(static_cast<unsigned>(std::time(nullptr))); 
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     SoLoud::Soloud soloud;
     soloud.init();
@@ -127,19 +114,15 @@ int main(int argc, char **argv)
     sfx_file_browser.SetTypeFilters({".ogg", ".wav", ".mp3", ".flac"});
     FileSystemFile sfx_file;
 
-    SoLoud::Bus speech_bus;
-    speech_bus.setVisualizationEnable(true);
-    SoLoud::handle speech_bus_handle = soloud.play(speech_bus);
-    float speech_bus_volume = 1.0f;
-    std::vector<SpeechInfo> speeches;
-
-    SoLoud::EchoFilter speech_echo;
-    speech_echo.setParams(0.3f);
-    bool speech_echo_enable = false;
-
-    SoLoud::FreeverbFilter speech_reverb;
-    speech_reverb.setParams(0, 0.5f, 0.5f, 1);
-    bool speech_reverb_enable = false;
+    SoLoud::Speech speech;
+    SoLoud::handle speech_handle = 0;
+    float speech_volume = 1.0f;
+    float speech_pan = 0.0f;
+    char speech_text[text_size]{};
+    unsigned int speech_base_freq = 1330;
+    float speech_base_speed = 10;
+    float speech_base_declination = 0.5;
+    KLATT_WAVEFORM speech_base_waveform = KW_SAW;
 
     SoLoud::Sfxr sfxr;
     SoLoud::Sfxr::SFXR_PRESETS sfxr_preset = SoLoud::Sfxr::COIN;
@@ -258,107 +241,61 @@ int main(int argc, char **argv)
 
             ImGui::Begin("Speech");
             {
-                ImGui::SameLine();
-                if (ImGui::Button("Pause All"))
+                if (ImGui::Button("Play"))
                 {
-                    is_speech_paused = !is_speech_paused;
-                    soloud.setPause(speech_bus_handle, is_speech_paused);
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Add One"))
-                {
-                    speeches.emplace_back();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Remove Last"))
-                {
-                    auto &speech = speeches.back();
-                    speech.speech.stop();
-                    speeches.pop_back();
+                    speech_handle = soloud.play(speech, speech_volume, speech_pan);
+                    speech.setParams(speech_base_freq, speech_base_speed, speech_base_declination);
                 }
 
-                ImGui::PlotLines("Visualization", speech_bus.getWave(), 256);
-                
-
-                if(ImGui::SliderFloat("Bus Volume", &speech_bus_volume, 0, 1.0f))
+                if (ImGui::InputTextMultiline("Text", speech_text, text_size))
                 {
-                    soloud.setVolume(speech_bus_handle, speech_bus_volume);
+                    speech.setText(speech_text);
                 }
 
-                if(ImGui::Checkbox("Echo", &speech_echo_enable))
+                if (ImGui::SliderFloat("Volume", &speech_volume, 0.0f, 1.0f))
                 {
-                    speech_bus.setFilter(0, speech_echo_enable ? &speech_echo : nullptr);
+                    soloud.setVolume(speech_handle, speech_volume);
                 }
 
-                if (ImGui::Checkbox("Reverb", &speech_reverb_enable))
+                ImGui::SliderFloat("Panning", &speech_pan, -1.0f, 1.0f);
+                if (ImGui::CollapsingHeader("Base params"))
                 {
-                    speech_bus.setFilter(1, speech_reverb_enable ? &speech_reverb : nullptr);
+                    constexpr unsigned int min_freq = 0;
+                    constexpr unsigned int max_freq = 3000;
+
+                    ImGui::SliderScalar("Base freq", ImGuiDataType_U32, &speech_base_freq, &min_freq, &max_freq);
+                    ImGui::SliderFloat("Base speed", &speech_base_speed, 0.1f, 30);
+                    ImGui::SliderFloat("Base declination", &speech_base_declination, -3, 3);
                 }
-
-                for (size_t i = 0; i < speeches.size(); i++)
+                if (ImGui::CollapsingHeader("Waveform"))
                 {
-                    auto &[speech, handle, volume, pan, text, base_freq, base_speed, base_declination, base_waveform] =
-                        speeches[i];
-
-                    if (ImGui::CollapsingHeader(std::format("Speech {}", i).c_str()))
+                    if (ImGui::RadioButton("Sin", speech_base_waveform == KW_SIN))
                     {
-                        if (ImGui::Button(std::format("Play {}", i).c_str()))
-                        {
-                            handle = speech_bus.play(speech, volume, pan);
-                            speech.setParams(static_cast<unsigned int>(floor(base_freq)), base_speed, base_declination);
-                        }
-
-                        if (ImGui::InputTextMultiline(std::format("Text {}", i).c_str(), text, text_size))
-                        {
-                            speech.setText(text);
-                        }
-
-                        if (ImGui::SliderFloat(std::format("Volume {}", i).c_str(), &volume, 0.0f, 1.0f))
-                        {
-                            speech.setVolume(volume);
-                        }
-
-                        ImGui::SliderFloat(std::format("Panning {}", i).c_str(), &pan, -1.0f, 1.0f);
-                        if (ImGui::CollapsingHeader(std::format("Base params {}", i).c_str()))
-                        {
-                            constexpr unsigned int min_freq = 0;
-                            constexpr unsigned int max_freq = 3000;
-
-                            ImGui::SliderScalar("Base freq", ImGuiDataType_U32, &base_freq, &min_freq, &max_freq);
-                            ImGui::SliderFloat("Base speed", &base_speed, 0.1f, 30);
-                            ImGui::SliderFloat("Base declination", &base_declination, -3, 3);
-                        }
-                        if (ImGui::CollapsingHeader(std::format("Waveform {}", i).c_str()))
-                        {
-                            if (ImGui::RadioButton("Sin", base_waveform == KW_SIN))
-                            {
-                                base_waveform = KW_SIN;
-                            }
-                            if (ImGui::RadioButton("Triangle", base_waveform == KW_TRIANGLE))
-                            {
-                                base_waveform = KW_TRIANGLE;
-                            }
-                            if (ImGui::RadioButton("Saw", base_waveform == KW_SAW))
-                            {
-                                base_waveform = KW_SAW;
-                            }
-                            if (ImGui::RadioButton("Square", base_waveform == KW_SQUARE))
-                            {
-                                base_waveform = KW_SQUARE;
-                            }
-                            if (ImGui::RadioButton("Pulse", base_waveform == KW_PULSE))
-                            {
-                                base_waveform = KW_PULSE;
-                            }
-                            if (ImGui::RadioButton("Warble", base_waveform == KW_WARBLE))
-                            {
-                                base_waveform = KW_WARBLE;
-                            }
-                            if (ImGui::RadioButton("Noise", base_waveform == KW_NOISE))
-                            {
-                                base_waveform = KW_NOISE;
-                            }
-                        }
+                        speech_base_waveform = KW_SIN;
+                    }
+                    if (ImGui::RadioButton("Triangle", speech_base_waveform == KW_TRIANGLE))
+                    {
+                        speech_base_waveform = KW_TRIANGLE;
+                    }
+                    if (ImGui::RadioButton("Saw", speech_base_waveform == KW_SAW))
+                    {
+                        speech_base_waveform = KW_SAW;
+                    }
+                    if (ImGui::RadioButton("Square", speech_base_waveform == KW_SQUARE))
+                    {
+                        speech_base_waveform = KW_SQUARE;
+                    }
+                    if (ImGui::RadioButton("Pulse", speech_base_waveform == KW_PULSE))
+                    {
+                        speech_base_waveform = KW_PULSE;
+                    }
+                    if (ImGui::RadioButton("Warble", speech_base_waveform == KW_WARBLE))
+                    {
+                        speech_base_waveform = KW_WARBLE;
+                    }
+                    if (ImGui::RadioButton("Noise", speech_base_waveform == KW_NOISE))
+                    {
+                        speech_base_waveform = KW_NOISE;
                     }
                 }
             }
@@ -369,7 +306,7 @@ int main(int argc, char **argv)
                 if (ImGui::Button("Play"))
                 {
                     sfxr.loadPreset(sfxr_preset, sfxr_seed);
-                    sfxr.setFilter(0, sfxr_lofi_enable? &sfxr_lofi: nullptr);
+                    sfxr.setFilter(0, sfxr_lofi_enable ? &sfxr_lofi : nullptr);
                     soloud.play(sfxr);
                 }
 
@@ -410,7 +347,7 @@ int main(int argc, char **argv)
                         sfxr_preset = SoLoud::Sfxr::BLIP;
                     }
                 }
-                
+
                 ImGui::InputInt("Seed Number", &sfxr_seed);
                 if (ImGui::Button("Random"))
                 {
