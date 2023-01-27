@@ -102,6 +102,7 @@ int main(int argc, char **argv)
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer_Init(renderer);
 
@@ -109,6 +110,7 @@ int main(int argc, char **argv)
 
     SoLoud::Soloud soloud;
     soloud.init();
+    soloud.setVisualizationEnable(true);
 
     SoLoud::WavStream bgm_stream;
     SoLoud::handle bgm_handle = 0;
@@ -126,6 +128,7 @@ int main(int argc, char **argv)
     FileSystemFile sfx_file;
 
     SoLoud::Bus speech_bus;
+    speech_bus.setVisualizationEnable(true);
     SoLoud::handle speech_bus_handle = soloud.play(speech_bus);
     float speech_bus_volume = 1.0f;
     std::vector<SpeechInfo> speeches;
@@ -274,6 +277,9 @@ int main(int argc, char **argv)
                     speeches.pop_back();
                 }
 
+                ImGui::PlotLines("Visualization", speech_bus.getWave(), 256);
+                
+
                 if(ImGui::SliderFloat("Bus Volume", &speech_bus_volume, 0, 1.0f))
                 {
                     soloud.setVolume(speech_bus_handle, speech_bus_volume);
@@ -415,6 +421,11 @@ int main(int argc, char **argv)
             }
             ImGui::End();
 
+            ImGui::Begin("SoLoud");
+            {
+                ImGui::PlotLines("Visualization", soloud.getWave(), 256);
+            }
+            ImGui::End();
             bgm_file_browser.Display();
             if (bgm_file_browser.HasSelected())
             {
@@ -451,6 +462,8 @@ int main(int argc, char **argv)
 
     soloud.stopAll();
     soloud.deinit();
+
+    ImGui::DestroyContext();
 
     SDL_GameControllerClose(controller);
     SDL_Quit();
