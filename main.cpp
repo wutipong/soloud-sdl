@@ -38,7 +38,7 @@ private:
     std::filesystem::path path_;
 };
 
-void FileSystemFile::open(std::filesystem::path path)
+void FileSystemFile::open(const std::filesystem::path path)
 {
     if (stream_.is_open())
     {
@@ -70,14 +70,19 @@ void FileSystemFile::seek(int aOffset) { stream_.seekg(aOffset); }
 
 unsigned int FileSystemFile::pos() { return static_cast<unsigned int>(stream_.tellg()); }
 
-constexpr size_t textSize = 1000;
+constexpr size_t text_size = 1000;
+
 struct SpeechInfo
 {
     SoLoud::Speech speech;
     SoLoud::handle handle = 0;
-    float volume{1.0f};
-    float pan{0.0f};
-    char text[textSize];
+    float volume = 1.0f;
+    float pan = 0.0f;
+    char text[text_size]{};
+    unsigned int base_freq = 1330;
+    float base_speed = 10;
+    float base_declination = 0.5;
+    KLATT_WAVEFORM base_waveform = KW_SAW;
 };
 
 int main(int argc, char **argv)
@@ -242,36 +247,77 @@ int main(int argc, char **argv)
                 ImGui::SameLine();
                 if (ImGui::Button("Remove Last"))
                 {
-                    auto & [speech, handle, volume, pan, text] = speeches.back();
-                    speech.stop();
-                    speeches.pop_back();   
+                    auto &speech = speeches.back();
+                    speech.speech.stop();
+                    speeches.pop_back();
                 }
 
-                for (size_t i = 0; i< speeches.size(); i++)
+                for (size_t i = 0; i < speeches.size(); i++)
                 {
-                    auto &speech = speeches[i];
-                    ImGui::BeginGroup();
+                    auto &[speech, handle, volume, pan, text, base_freq, base_speed, base_declination, base_waveform] =
+                        speeches[i];
+
+                    if (ImGui::CollapsingHeader(std::format("Speech {}", i).c_str()))
                     {
                         if (ImGui::Button(std::format("Play {}", i).c_str()))
                         {
-                            speech.handle = speechBus.play(speech.speech, speech.volume, speech.pan);
+                            handle = speechBus.play(speech, volume, pan);
+                            speech.setParams(static_cast<unsigned int>(floor(base_freq)), base_speed, base_declination);
                         }
 
-                        if (ImGui::InputTextMultiline(std::format("Text {}", i).c_str(), speech.text, textSize))
+                        if (ImGui::InputTextMultiline(std::format("Text {}", i).c_str(), text, text_size))
                         {
-                            speech.speech.setText(speech.text);
+                            speech.setText(text);
                         }
 
-                        if (ImGui::SliderFloat(std::format("Volume {}", i).c_str(), &speech.volume, 0.0f, 1.0f))
+                        if (ImGui::SliderFloat(std::format("Volume {}", i).c_str(), &volume, 0.0f, 1.0f))
                         {
-                            speech.speech.setVolume(speech.volume);
+                            speech.setVolume(volume);
                         }
 
-                        ImGui::SliderFloat(std::format("Panning {}", i).c_str(), &speech.pan, -1.0f, 1.0f);
+                        ImGui::SliderFloat(std::format("Panning {}", i).c_str(), &pan, -1.0f, 1.0f);
+                        if (ImGui::CollapsingHeader(std::format("Base params {}", i).c_str()))
+                        {
+                            constexpr unsigned int min_freq = 0;
+                            constexpr unsigned int max_freq = 3000;
+
+                            ImGui::SliderScalar("Base freq", ImGuiDataType_U32, &base_freq, &min_freq, &max_freq);
+                            ImGui::SliderFloat("Base speed", &base_speed, 0.1f, 30);
+                            ImGui::SliderFloat("Base declination", &base_declination, -3, 3);
+                        }
+                        if (ImGui::CollapsingHeader(std::format("Waveform {}", i).c_str()))
+                        {
+                            if (ImGui::RadioButton("Sin", base_waveform == KW_SIN))
+                            {
+                                base_waveform = KW_SIN;
+                            }
+                            if (ImGui::RadioButton("Triangle", base_waveform == KW_TRIANGLE))
+                            {
+                                base_waveform = KW_TRIANGLE;
+                            }
+                            if (ImGui::RadioButton("Saw", base_waveform == KW_SAW))
+                            {
+                                base_waveform = KW_SAW;
+                            }
+                            if (ImGui::RadioButton("Square", base_waveform == KW_SQUARE))
+                            {
+                                base_waveform = KW_SQUARE;
+                            }
+                            if (ImGui::RadioButton("Pulse", base_waveform == KW_PULSE))
+                            {
+                                base_waveform = KW_PULSE;
+                            }
+                            if (ImGui::RadioButton("Warble", base_waveform == KW_WARBLE))
+                            {
+                                base_waveform = KW_WARBLE;
+                            }
+                            if (ImGui::RadioButton("Noise", base_waveform == KW_NOISE))
+                            {
+                                base_waveform = KW_NOISE;
+                            }
+                        }
                     }
-                    ImGui::EndGroup();
                 }
-
             }
             ImGui::End();
 
