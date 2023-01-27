@@ -108,7 +108,6 @@ int main(int argc, char **argv)
     FileSystemFile bgm_file;
 
     SoLoud::Wav sfx_wav;
-    float sfx_x_pos = 0.0f, sfx_y_pos = 0.0f, sfx_z_pos = 0.0f;
     ImGui::FileBrowser sfx_file_browser;
     sfx_file_browser.SetTitle("Open SFX");
     sfx_file_browser.SetTypeFilters({".ogg", ".wav", ".mp3", ".flac"});
@@ -124,42 +123,122 @@ int main(int argc, char **argv)
     float speech_base_declination = 0.5;
     KLATT_WAVEFORM speech_base_waveform = KW_SAW;
 
-    SoLoud::Sfxr sfxr;
-    SoLoud::Sfxr::SFXR_PRESETS sfxr_preset = SoLoud::Sfxr::COIN;
-    int sfxr_seed = std::rand();
+    constexpr size_t sfxr_count = 4;
+    SoLoud::Sfxr sfxrs[sfxr_count] = {};
+    SoLoud::Sfxr::SFXR_PRESETS sfxr_presets[sfxr_count] = {SoLoud::Sfxr::COIN};
+    int sfxr_seeds[sfxr_count] = {std::rand(), std::rand(), std::rand(), std::rand()};
     SoLoud::LofiFilter sfxr_lofi;
     sfxr_lofi.setParams(8000, 4);
-    bool sfxr_lofi_enable = false;
+    bool sfxr_lofi_enables[sfxr_count] = {false, false, false, false};
 
+    SoLoud::Bus sfxr_bus;
+    auto sfxr_bus_handle = soloud.play(sfxr_bus);
+    float sfxr_bus_volume = 1.0f;
+
+    SoLoud::FreeverbFilter sfxr_bus_freeverb;
+    sfxr_bus_freeverb.setParams(0, 0.5f, 0.5f, 1);
+    bool sfxr_bus_freeverb_enabled = false;
+
+    SoLoud::EchoFilter sfxr_bus_echo;
+    sfxr_bus_echo.setParams(0.300f);
+    bool sfxr_bus_echo_enabled = false;
+
+    float sfxr_x_pos = 0.0f, sfxr_y_pos = 0.0f, sfxr_z_pos = 0.0f;
+
+    bool use_controller = false;
     SDL_GameController *controller = nullptr;
     if (SDL_NumJoysticks() >= 1)
     {
         controller = SDL_GameControllerOpen(0);
     }
 
-    bool is_a_pressed = false;
-    bool is_using_controller = true;
-    bool is_speech_paused = false;
-
     while (true)
     {
-        SDL_Event event;
-        if (SDL_PollEvent(&event))
+        bool is_a_pressed = false;
+        bool is_b_pressed = false;
+        bool is_x_pressed = false;
+        bool is_y_pressed = false;
+
+        bool quit = false;
+
+        while (true)
         {
+            SDL_JoystickUpdate();
+            SDL_Event event;
+            if (!SDL_PollEvent(&event))
+                break;
+
             ImGui_ImplSDL2_ProcessEvent(&event);
             if (event.type == SDL_QUIT)
             {
-                break;
+                quit = true;
             }
-            if (event.type == SDL_CONTROLLERBUTTONUP)
+            else if (event.type == SDL_CONTROLLERBUTTONUP)
             {
                 if (event.cbutton.button == SDL_CONTROLLER_BUTTON_A)
                 {
                     is_a_pressed = true;
                 }
+
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_B)
+                {
+                    is_b_pressed = true;
+                }
+
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_X)
+                {
+                    is_x_pressed = true;
+                }
+
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_Y)
+                {
+                    is_y_pressed = true;
+                }
             }
         }
-        SDL_JoystickUpdate();
+        if (quit)
+            break;
+
+        if (use_controller)
+        {
+            auto x_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
+            auto y_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+            auto z_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) -
+                SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+
+            sfxr_x_pos = static_cast<float>(x_axis) / static_cast<float>(SDL_MAX_SINT16);
+            sfxr_y_pos = static_cast<float>(y_axis) / static_cast<float>(SDL_MAX_SINT16);
+            sfxr_z_pos = static_cast<float>(z_axis) / static_cast<float>(SDL_MAX_SINT16);
+
+
+            if (is_a_pressed)
+            {
+                sfxrs[0].loadPreset(sfxr_presets[0], sfxr_seeds[0]);
+                sfxrs[0].setFilter(0, sfxr_lofi_enables[0] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[0], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+
+            if (is_b_pressed)
+            {
+                sfxrs[1].loadPreset(sfxr_presets[1], sfxr_seeds[1]);
+                sfxrs[1].setFilter(0, sfxr_lofi_enables[1] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[1], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+
+            if (is_x_pressed)
+            {
+                sfxrs[2].loadPreset(sfxr_presets[2], sfxr_seeds[2]);
+                sfxrs[2].setFilter(0, sfxr_lofi_enables[2] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[2], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+
+            if (is_y_pressed)
+            {
+                sfxrs[3].loadPreset(sfxr_presets[3], sfxr_seeds[3]);
+                sfxrs[3].setFilter(0, sfxr_lofi_enables[3] ? &sfxr_lofi : nullptr);
+                sfxr_bus.play3d(sfxrs[3], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+            }
+        }
 
         SDL_RenderClear(renderer);
         ImGui_ImplSDL2_NewFrame(window);
@@ -207,35 +286,9 @@ int main(int argc, char **argv)
                 ImGui::SameLine();
                 if (ImGui::Button("Play"))
                 {
-                    soloud.play3d(sfx_wav, sfx_x_pos, sfx_y_pos, sfx_z_pos);
+                    soloud.play3d(sfx_wav, sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
                 }
                 ImGui::LabelText("Filename", "%s", sfx_file.path().u8string().c_str());
-                if (controller)
-                {
-                    ImGui::Checkbox("Use Controller", &is_using_controller);
-                    if (is_using_controller)
-                    {
-                        auto left_x_value = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
-                        auto left_y_value = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
-                        auto trigger_value = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) -
-                            SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
-
-                        sfx_x_pos = static_cast<float>(left_x_value) / static_cast<float>(SDL_MAX_SINT16);
-                        sfx_y_pos = static_cast<float>(left_y_value) / static_cast<float>(SDL_MAX_SINT16);
-                        sfx_z_pos = static_cast<float>(trigger_value) / static_cast<float>(SDL_MAX_SINT16);
-
-                        if (is_a_pressed)
-                        {
-                            soloud.play3d(sfx_wav, sfx_x_pos, sfx_y_pos, sfx_z_pos);
-
-                            is_a_pressed = false;
-                        }
-                    }
-                }
-
-                ImGui::SliderFloat("X", &sfx_x_pos, -1.0f, 1.0f);
-                ImGui::SliderFloat("Y", &sfx_y_pos, -1.0f, 1.0f);
-                ImGui::SliderFloat("Z", &sfx_z_pos, -1.0f, 1.0f);
             }
             ImGui::End();
 
@@ -303,58 +356,91 @@ int main(int argc, char **argv)
 
             ImGui::Begin("Sfxr");
             {
-                if (ImGui::Button("Play"))
+                if (ImGui::SliderFloat("Volume", &sfxr_bus_volume, 0.0f, 1.0f))
                 {
-                    sfxr.loadPreset(sfxr_preset, sfxr_seed);
-                    sfxr.setFilter(0, sfxr_lofi_enable ? &sfxr_lofi : nullptr);
-                    soloud.play(sfxr);
+                    soloud.setVolume(sfxr_bus_handle, sfxr_bus_volume);
                 }
 
-                if (ImGui::CollapsingHeader("Preset"))
+                if (ImGui::Checkbox("Echo", &sfxr_bus_echo_enabled))
                 {
-                    if (ImGui::RadioButton("Coin", sfxr_preset == SoLoud::Sfxr::COIN))
-                    {
-                        sfxr_preset = SoLoud::Sfxr::COIN;
-                    }
-
-                    if (ImGui::RadioButton("Laser", sfxr_preset == SoLoud::Sfxr::LASER))
-                    {
-                        sfxr_preset = SoLoud::Sfxr::LASER;
-                    }
-
-                    if (ImGui::RadioButton("Explosion", sfxr_preset == SoLoud::Sfxr::EXPLOSION))
-                    {
-                        sfxr_preset = SoLoud::Sfxr::EXPLOSION;
-                    }
-
-                    if (ImGui::RadioButton("Power Up", sfxr_preset == SoLoud::Sfxr::POWERUP))
-                    {
-                        sfxr_preset = SoLoud::Sfxr::POWERUP;
-                    }
-
-                    if (ImGui::RadioButton("Hurt", sfxr_preset == SoLoud::Sfxr::HURT))
-                    {
-                        sfxr_preset = SoLoud::Sfxr::HURT;
-                    }
-
-                    if (ImGui::RadioButton("Jump", sfxr_preset == SoLoud::Sfxr::JUMP))
-                    {
-                        sfxr_preset = SoLoud::Sfxr::JUMP;
-                    }
-
-                    if (ImGui::RadioButton("Blip", sfxr_preset == SoLoud::Sfxr::BLIP))
-                    {
-                        sfxr_preset = SoLoud::Sfxr::BLIP;
-                    }
+                    sfxr_bus.setFilter(0, sfxr_bus_echo_enabled ? &sfxr_bus_echo : nullptr);
                 }
 
-                ImGui::InputInt("Seed Number", &sfxr_seed);
-                if (ImGui::Button("Random"))
+                if (ImGui::Checkbox("Reverb", &sfxr_bus_freeverb_enabled))
                 {
-                    sfxr_seed = std::rand();
+                    sfxr_bus.setFilter(1, sfxr_bus_freeverb_enabled ? &sfxr_bus_freeverb : nullptr);
                 }
 
-                ImGui::Checkbox("Lo-Fi", &sfxr_lofi_enable);
+                ImGui::SliderFloat("X", &sfxr_x_pos, -1.0f, 1.0f);
+                ImGui::SliderFloat("Y", &sfxr_y_pos, -1.0f, 1.0f);
+                ImGui::SliderFloat("Z", &sfxr_z_pos, -1.0f, 1.0f);
+
+                constexpr const char sfxr_header_texts[sfxr_count][30]{
+                    "SFXR #1 - Controller A Button", "SFXR #2 - Controller B Button", "SFXR #3 - Controller X Button",
+                    "SFXR #4 - Controller Y Button"};
+
+                if (controller)
+                {
+                    ImGui::Checkbox("Use Controller", &use_controller);
+                }
+                for (size_t i = 0; i < sfxr_count; i++)
+                {
+                    if (ImGui::CollapsingHeader(sfxr_header_texts[i]))
+                    {
+                        if (ImGui::Button(std::format("Play ##{}", i).c_str()))
+                        {
+                            sfxrs[i].loadPreset(sfxr_presets[i], sfxr_seeds[i]);
+                            sfxrs[i].setFilter(0, sfxr_lofi_enables[i] ? &sfxr_lofi : nullptr);
+                            sfxr_bus.play3d(sfxrs[i], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                        }
+
+                        if (ImGui::CollapsingHeader(std::format("Preset ##{}", i).c_str()))
+                        {
+                            if (ImGui::RadioButton("Coin", sfxr_presets[i] == SoLoud::Sfxr::COIN))
+                            {
+                                sfxr_presets[i] = SoLoud::Sfxr::COIN;
+                            }
+
+                            if (ImGui::RadioButton("Laser", sfxr_presets[i] == SoLoud::Sfxr::LASER))
+                            {
+                                sfxr_presets[i] = SoLoud::Sfxr::LASER;
+                            }
+
+                            if (ImGui::RadioButton("Explosion", sfxr_presets[i] == SoLoud::Sfxr::EXPLOSION))
+                            {
+                                sfxr_presets[i] = SoLoud::Sfxr::EXPLOSION;
+                            }
+
+                            if (ImGui::RadioButton("Power Up", sfxr_presets[i] == SoLoud::Sfxr::POWERUP))
+                            {
+                                sfxr_presets[i] = SoLoud::Sfxr::POWERUP;
+                            }
+
+                            if (ImGui::RadioButton("Hurt", sfxr_presets[i] == SoLoud::Sfxr::HURT))
+                            {
+                                sfxr_presets[i] = SoLoud::Sfxr::HURT;
+                            }
+
+                            if (ImGui::RadioButton("Jump", sfxr_presets[i] == SoLoud::Sfxr::JUMP))
+                            {
+                                sfxr_presets[i] = SoLoud::Sfxr::JUMP;
+                            }
+
+                            if (ImGui::RadioButton("Blip", sfxr_presets[i] == SoLoud::Sfxr::BLIP))
+                            {
+                                sfxr_presets[i] = SoLoud::Sfxr::BLIP;
+                            }
+                        }
+
+                        ImGui::InputInt(std::format("Seed Number ##{}", i).c_str(), &sfxr_seeds[i]);
+                        if (ImGui::Button(std::format("Random ##{}", i).c_str()))
+                        {
+                            sfxr_seeds[i] = std::rand();
+                        }
+
+                        ImGui::Checkbox(std::format("Lo-Fi ##{}", i).c_str(), &sfxr_lofi_enables[i]);
+                    }
+                }
             }
             ImGui::End();
 
