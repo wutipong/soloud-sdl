@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
+#include <soloud_lofifilter.h>
 
 class FileSystemFile : public SoLoud::File
 {
@@ -130,6 +131,9 @@ int main(int argc, char **argv)
     SoLoud::Sfxr sfxr;
     SoLoud::Sfxr::SFXR_PRESETS sfxr_preset = SoLoud::Sfxr::COIN;
     int sfxr_seed = std::rand();
+    SoLoud::LofiFilter sfxr_lofi;
+    sfxr_lofi.setParams(8000, 4);
+    bool sfxr_lofi_enable = false;
 
     SDL_GameController *controller = nullptr;
     if (SDL_NumJoysticks() >= 1)
@@ -333,42 +337,43 @@ int main(int argc, char **argv)
                 if (ImGui::Button("Play"))
                 {
                     sfxr.loadPreset(sfxr_preset, sfxr_seed);
+                    sfxr.setFilter(0, sfxr_lofi_enable? &sfxr_lofi: nullptr);
                     soloud.play(sfxr);
                 }
 
                 if (ImGui::CollapsingHeader("Preset"))
                 {
-                    if (ImGui::RadioButton("COIN", sfxr_preset == SoLoud::Sfxr::COIN))
+                    if (ImGui::RadioButton("Coin", sfxr_preset == SoLoud::Sfxr::COIN))
                     {
                         sfxr_preset = SoLoud::Sfxr::COIN;
                     }
 
-                    if (ImGui::RadioButton("LASER", sfxr_preset == SoLoud::Sfxr::LASER))
+                    if (ImGui::RadioButton("Laser", sfxr_preset == SoLoud::Sfxr::LASER))
                     {
                         sfxr_preset = SoLoud::Sfxr::LASER;
                     }
 
-                    if (ImGui::RadioButton("EXPLOSION", sfxr_preset == SoLoud::Sfxr::EXPLOSION))
+                    if (ImGui::RadioButton("Explosion", sfxr_preset == SoLoud::Sfxr::EXPLOSION))
                     {
                         sfxr_preset = SoLoud::Sfxr::EXPLOSION;
                     }
 
-                    if (ImGui::RadioButton("POWER UP", sfxr_preset == SoLoud::Sfxr::POWERUP))
+                    if (ImGui::RadioButton("Power Up", sfxr_preset == SoLoud::Sfxr::POWERUP))
                     {
                         sfxr_preset = SoLoud::Sfxr::POWERUP;
                     }
 
-                    if (ImGui::RadioButton("HURT", sfxr_preset == SoLoud::Sfxr::HURT))
+                    if (ImGui::RadioButton("Hurt", sfxr_preset == SoLoud::Sfxr::HURT))
                     {
                         sfxr_preset = SoLoud::Sfxr::HURT;
                     }
 
-                    if (ImGui::RadioButton("JUMP", sfxr_preset == SoLoud::Sfxr::JUMP))
+                    if (ImGui::RadioButton("Jump", sfxr_preset == SoLoud::Sfxr::JUMP))
                     {
                         sfxr_preset = SoLoud::Sfxr::JUMP;
                     }
 
-                    if (ImGui::RadioButton("BLIP", sfxr_preset == SoLoud::Sfxr::BLIP))
+                    if (ImGui::RadioButton("Blip", sfxr_preset == SoLoud::Sfxr::BLIP))
                     {
                         sfxr_preset = SoLoud::Sfxr::BLIP;
                     }
@@ -379,6 +384,8 @@ int main(int argc, char **argv)
                 {
                     sfxr_seed = std::rand();
                 }
+
+                ImGui::Checkbox("Lo-Fi", &sfxr_lofi_enable);
             }
             ImGui::End();
 

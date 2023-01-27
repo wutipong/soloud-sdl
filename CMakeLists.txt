@@ -40,6 +40,7 @@ add_executable(soloud-sdl
   "soloud/src/core/soloud_misc.cpp"
   "soloud/src/core/soloud_queue.cpp"
   "soloud/src/core/soloud_thread.cpp"
+  "soloud/src/filter/soloud_lofifilter.cpp"
 )
 
 add_compile_definitions(WITH_SDL2)
