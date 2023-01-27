@@ -10,10 +10,12 @@
 #include <soloud_file.h>
 #include <soloud_wav.h>
 #include <soloud_wavstream.h>
+#include <soloud_sfxr.h>
+#include <soloud_speech.h>
 
 #include <filesystem>
 #include <fstream>
-#include <soloud_speech.h>
+#include <cstdlib>
 
 class FileSystemFile : public SoLoud::File
 {
@@ -100,27 +102,34 @@ int main(int argc, char **argv)
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer_Init(renderer);
 
+    std::srand(static_cast<unsigned>(std::time(nullptr))); 
+
     SoLoud::Soloud soloud;
-    SoLoud::WavStream bgm_stream;
-    SoLoud::Wav sfx_wav;
-    SoLoud::handle bgm_handle = 0;
-    SoLoud::Bus speechBus;
-    std::vector<SpeechInfo> speeches;
-
-    float bgm_volume = 1.0f;
-    float sfx_x_pos = 0.0f, sfx_y_pos = 0.0f, sfx_z_pos = 0.0f;
-
     soloud.init();
 
+    SoLoud::WavStream bgm_stream;
+    SoLoud::handle bgm_handle = 0;
+    float bgm_volume = 1.0f;
     ImGui::FileBrowser bgm_file_browser;
     bgm_file_browser.SetTitle("Open BGM");
     bgm_file_browser.SetTypeFilters({".ogg", ".wav", ".mp3", ".flac"});
     FileSystemFile bgm_file;
 
+    SoLoud::Wav sfx_wav;
+    float sfx_x_pos = 0.0f, sfx_y_pos = 0.0f, sfx_z_pos = 0.0f;
     ImGui::FileBrowser sfx_file_browser;
-    sfx_file_browser.SetTitle("Open BGM");
+    sfx_file_browser.SetTitle("Open SFX");
     sfx_file_browser.SetTypeFilters({".ogg", ".wav", ".mp3", ".flac"});
     FileSystemFile sfx_file;
+
+    SoLoud::Bus speech_bus;
+    SoLoud::handle speechBusHandle = soloud.play(speech_bus);
+
+    std::vector<SpeechInfo> speeches;
+
+    SoLoud::Sfxr sfxr;
+    SoLoud::Sfxr::SFXR_PRESETS sfxr_preset = SoLoud::Sfxr::COIN;
+    int sfxr_seed = std::rand();
 
     SDL_GameController *controller = nullptr;
     if (SDL_NumJoysticks() >= 1)
@@ -128,11 +137,9 @@ int main(int argc, char **argv)
         controller = SDL_GameControllerOpen(0);
     }
 
-
     bool is_a_pressed = false;
     bool is_using_controller = true;
     bool is_speech_paused = false;
-    SoLoud::handle speechBusHandle = soloud.play(speechBus);
 
     while (true)
     {
@@ -261,7 +268,7 @@ int main(int argc, char **argv)
                     {
                         if (ImGui::Button(std::format("Play {}", i).c_str()))
                         {
-                            handle = speechBus.play(speech, volume, pan);
+                            handle = speech_bus.play(speech, volume, pan);
                             speech.setParams(static_cast<unsigned int>(floor(base_freq)), base_speed, base_declination);
                         }
 
@@ -317,6 +324,60 @@ int main(int argc, char **argv)
                             }
                         }
                     }
+                }
+            }
+            ImGui::End();
+
+            ImGui::Begin("Sfxr");
+            {
+                if (ImGui::Button("Play"))
+                {
+                    sfxr.loadPreset(sfxr_preset, sfxr_seed);
+                    soloud.play(sfxr);
+                }
+
+                if (ImGui::CollapsingHeader("Preset"))
+                {
+                    if (ImGui::RadioButton("COIN", sfxr_preset == SoLoud::Sfxr::COIN))
+                    {
+                        sfxr_preset = SoLoud::Sfxr::COIN;
+                    }
+
+                    if (ImGui::RadioButton("LASER", sfxr_preset == SoLoud::Sfxr::LASER))
+                    {
+                        sfxr_preset = SoLoud::Sfxr::LASER;
+                    }
+
+                    if (ImGui::RadioButton("EXPLOSION", sfxr_preset == SoLoud::Sfxr::EXPLOSION))
+                    {
+                        sfxr_preset = SoLoud::Sfxr::EXPLOSION;
+                    }
+
+                    if (ImGui::RadioButton("POWER UP", sfxr_preset == SoLoud::Sfxr::POWERUP))
+                    {
+                        sfxr_preset = SoLoud::Sfxr::POWERUP;
+                    }
+
+                    if (ImGui::RadioButton("HURT", sfxr_preset == SoLoud::Sfxr::HURT))
+                    {
+                        sfxr_preset = SoLoud::Sfxr::HURT;
+                    }
+
+                    if (ImGui::RadioButton("JUMP", sfxr_preset == SoLoud::Sfxr::JUMP))
+                    {
+                        sfxr_preset = SoLoud::Sfxr::JUMP;
+                    }
+
+                    if (ImGui::RadioButton("BLIP", sfxr_preset == SoLoud::Sfxr::BLIP))
+                    {
+                        sfxr_preset = SoLoud::Sfxr::BLIP;
+                    }
+                }
+                
+                ImGui::InputInt("Seed Number", &sfxr_seed);
+                if (ImGui::Button("Random"))
+                {
+                    sfxr_seed = std::rand();
                 }
             }
             ImGui::End();
