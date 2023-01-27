@@ -42,6 +42,7 @@ add_executable(soloud-sdl
   "soloud/src/core/soloud_thread.cpp"
   "soloud/src/filter/soloud_lofifilter.cpp"
   "soloud/src/filter/soloud_echofilter.cpp"
+  "soloud/src/filter/soloud_freeverbfilter.cpp"
 )
 
 add_compile_definitions(WITH_SDL2)
