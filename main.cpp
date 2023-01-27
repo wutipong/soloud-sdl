@@ -17,6 +17,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <soloud_lofifilter.h>
+#include <soloud_echofilter.h>
 
 class FileSystemFile : public SoLoud::File
 {
@@ -125,8 +126,10 @@ int main(int argc, char **argv)
 
     SoLoud::Bus speech_bus;
     SoLoud::handle speechBusHandle = soloud.play(speech_bus);
-
     std::vector<SpeechInfo> speeches;
+    SoLoud::EchoFilter speech_echo;
+    speech_echo.setParams(0.3f);
+    bool speech_echo_enable = false;
 
     SoLoud::Sfxr sfxr;
     SoLoud::Sfxr::SFXR_PRESETS sfxr_preset = SoLoud::Sfxr::COIN;
@@ -261,6 +264,11 @@ int main(int argc, char **argv)
                     auto &speech = speeches.back();
                     speech.speech.stop();
                     speeches.pop_back();
+                }
+
+                if(ImGui::Checkbox("Echo", &speech_echo_enable))
+                {
+                    speech_bus.setFilter(0, speech_echo_enable ? &speech_echo : nullptr);
                 }
 
                 for (size_t i = 0; i < speeches.size(); i++)
