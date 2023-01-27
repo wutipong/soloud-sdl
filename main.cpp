@@ -11,8 +11,9 @@
 #include <soloud_wav.h>
 #include <soloud_wavstream.h>
 
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <soloud_speech.h>
 
 class FileSystemFile : public SoLoud::File
 {
@@ -69,6 +70,15 @@ void FileSystemFile::seek(int aOffset) { stream_.seekg(aOffset); }
 
 unsigned int FileSystemFile::pos() { return static_cast<unsigned int>(stream_.tellg()); }
 
+constexpr size_t textSize = 1000;
+struct SpeechInfo
+{
+    SoLoud::Speech speech;
+    SoLoud::handle handle = 0;
+    float volume{1.0f};
+    float pan{0.0f};
+    char text[textSize];
+};
 
 int main(int argc, char **argv)
 {
@@ -89,6 +99,9 @@ int main(int argc, char **argv)
     SoLoud::WavStream bgm_stream;
     SoLoud::Wav sfx_wav;
     SoLoud::handle bgm_handle = 0;
+    SoLoud::Bus speechBus;
+    std::vector<SpeechInfo> speeches;
+
     float bgm_volume = 1.0f;
     float sfx_x_pos = 0.0f, sfx_y_pos = 0.0f, sfx_z_pos = 0.0f;
 
@@ -96,12 +109,12 @@ int main(int argc, char **argv)
 
     ImGui::FileBrowser bgm_file_browser;
     bgm_file_browser.SetTitle("Open BGM");
-    bgm_file_browser.SetTypeFilters({".ogg", ".wav", "mp3", ".flac"});
+    bgm_file_browser.SetTypeFilters({".ogg", ".wav", ".mp3", ".flac"});
     FileSystemFile bgm_file;
 
     ImGui::FileBrowser sfx_file_browser;
     sfx_file_browser.SetTitle("Open BGM");
-    sfx_file_browser.SetTypeFilters({".ogg", ".wav", "mp3", ".flac"});
+    sfx_file_browser.SetTypeFilters({".ogg", ".wav", ".mp3", ".flac"});
     FileSystemFile sfx_file;
 
     SDL_GameController *controller = nullptr;
@@ -113,6 +126,8 @@ int main(int argc, char **argv)
 
     bool is_a_pressed = false;
     bool is_using_controller = true;
+    bool is_speech_paused = false;
+    SoLoud::handle speechBusHandle = soloud.play(speechBus);
 
     while (true)
     {
@@ -211,6 +226,54 @@ int main(int argc, char **argv)
             }
             ImGui::End();
 
+            ImGui::Begin("Speech");
+            {
+                ImGui::SameLine();
+                if (ImGui::Button("Pause All"))
+                {
+                    is_speech_paused = !is_speech_paused;
+                    soloud.setPause(speechBusHandle, is_speech_paused);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Add One"))
+                {
+                    speeches.emplace_back();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Remove Last"))
+                {
+                    auto & [speech, handle, volume, pan, text] = speeches.back();
+                    speech.stop();
+                    speeches.pop_back();   
+                }
+
+                for (size_t i = 0; i< speeches.size(); i++)
+                {
+                    auto &speech = speeches[i];
+                    ImGui::BeginGroup();
+                    {
+                        if (ImGui::Button(std::format("Play {}", i).c_str()))
+                        {
+                            speech.handle = speechBus.play(speech.speech, speech.volume, speech.pan);
+                        }
+
+                        if (ImGui::InputTextMultiline(std::format("Text {}", i).c_str(), speech.text, textSize))
+                        {
+                            speech.speech.setText(speech.text);
+                        }
+
+                        if (ImGui::SliderFloat(std::format("Volume {}", i).c_str(), &speech.volume, 0.0f, 1.0f))
+                        {
+                            speech.speech.setVolume(speech.volume);
+                        }
+
+                        ImGui::SliderFloat(std::format("Panning {}", i).c_str(), &speech.pan, -1.0f, 1.0f);
+                    }
+                    ImGui::EndGroup();
+                }
+
+            }
+            ImGui::End();
 
             bgm_file_browser.Display();
             if (bgm_file_browser.HasSelected())

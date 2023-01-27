@@ -34,6 +34,11 @@ add_executable(soloud-sdl
   "soloud/src/audiosource/wav/soloud_wav.cpp"
   "soloud/src/audiosource/wav/soloud_wavstream.cpp"
   "soloud/src/audiosource/wav/stb_vorbis.c"
+  "soloud/src/audiosource/speech/soloud_speech.cpp"
+  "soloud/src/audiosource/speech/resonator.cpp"
+  "soloud/src/audiosource/speech/klatt.cpp"
+  "soloud/src/audiosource/speech/darray.cpp"
+  "soloud/src/audiosource/speech/tts.cpp"
 )
 
 add_compile_definitions(WITH_SDL2)
