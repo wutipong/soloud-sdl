@@ -18,6 +18,7 @@
 #include <random>
 
 #include "filesystemfile.hpp"
+#include "joystickevent.hpp"
 
 int main(int argc, char **argv)
 {
@@ -98,14 +99,7 @@ int main(int argc, char **argv)
 
     while (true)
     {
-        bool is_a_pressed = false;
-        bool is_b_pressed = false;
-        bool is_x_pressed = false;
-        bool is_y_pressed = false;
-        bool is_u_pressed = false;
-        bool is_d_pressed = false;
-        bool is_l_pressed = false;
-        bool is_r_pressed = false;
+        JoyStickEvent joystick;
 
         bool quit = false;
 
@@ -123,45 +117,7 @@ int main(int argc, char **argv)
             }
             else if (event.type == SDL_CONTROLLERBUTTONUP)
             {
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_A)
-                {
-                    is_a_pressed = true;
-                }
-
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_B)
-                {
-                    is_b_pressed = true;
-                }
-
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_X)
-                {
-                    is_x_pressed = true;
-                }
-
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_Y)
-                {
-                    is_y_pressed = true;
-                }
-
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP)
-                {
-                    is_u_pressed = true;
-                }
-
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_DOWN)
-                {
-                    is_d_pressed = true;
-                }
-
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_LEFT)
-                {
-                    is_l_pressed = true;
-                }
-
-                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
-                {
-                    is_r_pressed = true;
-                }
+                joystick.update_button(event);
             }
         }
         if (quit)
@@ -169,66 +125,60 @@ int main(int argc, char **argv)
 
         if (use_controller)
         {
-            auto x_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
-            auto y_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
-            auto z_axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) -
-                SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+            sfxr_x_pos = static_cast<float>(joystick.x_axis) / static_cast<float>(SDL_MAX_SINT16);
+            sfxr_y_pos = static_cast<float>(joystick.y_axis) / static_cast<float>(SDL_MAX_SINT16);
+            sfxr_z_pos = static_cast<float>(joystick.z_axis) / static_cast<float>(SDL_MAX_SINT16);
 
-            sfxr_x_pos = static_cast<float>(x_axis) / static_cast<float>(SDL_MAX_SINT16);
-            sfxr_y_pos = static_cast<float>(y_axis) / static_cast<float>(SDL_MAX_SINT16);
-            sfxr_z_pos = static_cast<float>(z_axis) / static_cast<float>(SDL_MAX_SINT16);
-
-
-            if (is_a_pressed)
+            if (joystick.is_a_pressed)
             {
                 sfxrs[0].loadPreset(sfxr_presets[0], sfxr_seeds[0]);
                 sfxrs[0].setFilter(0, sfxr_lofi_enables[0] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[0], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
 
-            if (is_b_pressed)
+            if (joystick.is_b_pressed)
             {
                 sfxrs[1].loadPreset(sfxr_presets[1], sfxr_seeds[1]);
                 sfxrs[1].setFilter(0, sfxr_lofi_enables[1] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[1], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
 
-            if (is_x_pressed)
+            if (joystick.is_x_pressed)
             {
                 sfxrs[2].loadPreset(sfxr_presets[2], sfxr_seeds[2]);
                 sfxrs[2].setFilter(0, sfxr_lofi_enables[2] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[2], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
 
-            if (is_y_pressed)
+            if (joystick.is_y_pressed)
             {
                 sfxrs[3].loadPreset(sfxr_presets[3], sfxr_seeds[3]);
                 sfxrs[3].setFilter(0, sfxr_lofi_enables[3] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[3], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
 
-            if (is_u_pressed)
+            if (joystick.is_u_pressed)
             {
                 sfxrs[4].loadPreset(sfxr_presets[4], sfxr_seeds[4]);
                 sfxrs[4].setFilter(0, sfxr_lofi_enables[4] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[4], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
 
-            if (is_d_pressed)
+            if (joystick.is_d_pressed)
             {
                 sfxrs[5].loadPreset(sfxr_presets[5], sfxr_seeds[5]);
                 sfxrs[5].setFilter(0, sfxr_lofi_enables[5] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[5], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
 
-            if (is_l_pressed)
+            if (joystick.is_l_pressed)
             {
                 sfxrs[6].loadPreset(sfxr_presets[6], sfxr_seeds[6]);
                 sfxrs[6].setFilter(0, sfxr_lofi_enables[6] ? &sfxr_lofi : nullptr);
                 sfxr_bus.play3d(sfxrs[6], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
             }
 
-            if (is_r_pressed)
+            if (joystick.is_r_pressed)
             {
                 sfxrs[7].loadPreset(sfxr_presets[7], sfxr_seeds[7]);
                 sfxrs[7].setFilter(0, sfxr_lofi_enables[7] ? &sfxr_lofi : nullptr);
