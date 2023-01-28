@@ -22,7 +22,7 @@
 
 struct BackgroundMusic
 {
-    SoLoud::WavStream stream;
+    SoLoud::WavStream source;
     SoLoud::handle handle = 0;
     FileSystemFile file;
     float volume = 1.0f;
@@ -30,7 +30,7 @@ struct BackgroundMusic
 
 struct SoundEffect
 {
-    SoLoud::Wav wav;
+    SoLoud::Wav source;
     FileSystemFile file;
 };
 
@@ -40,7 +40,7 @@ struct Speech
     static constexpr unsigned int min_freq = 0;
     static constexpr unsigned int max_freq = 3000;
 
-    SoLoud::Speech speech;
+    SoLoud::Speech source;
     SoLoud::handle handle = 0;
     float volume = 1.0f;
     float pan = 0.0f;
@@ -49,6 +49,51 @@ struct Speech
     float base_speed = 10;
     float base_declination = 0.5;
     KLATT_WAVEFORM base_waveform = KW_SAW;
+};
+
+struct SFXRSoundEffect
+{
+    static constexpr size_t count = 8;
+
+    SoLoud::Sfxr sources[count] = {};
+    SoLoud::Sfxr::SFXR_PRESETS presets[count] = {SoLoud::Sfxr::COIN};
+    int seeds[count] = {};
+
+    SoLoud::LofiFilter lofi_filter;
+    bool lofi_enableds[count] = {false, false, false, false, false, false, false, false};
+
+    SoLoud::Bus bus;
+    float bus_volume = 1.0f;
+    SoLoud::handle bus_handle = 0;
+
+    SoLoud::FreeverbFilter bus_freeverb_filter;
+    bool bus_freeverb_enabled = false;
+
+    SoLoud::EchoFilter bus_echo_filter;
+    bool bus_echo_enabled = false;
+
+    float position_x = 0.0f, position_y = 0.0f, position_z = 0.0f;
+
+private:
+    std::random_device rd_;
+    std::uniform_int_distribution<int> rand_{INT_MIN, INT_MAX};
+
+public:
+    SFXRSoundEffect()
+    {
+        for (auto &seed : seeds)
+        {
+            seed = rand_(rd_);
+        }
+        lofi_filter.setParams(8000, 4);
+        bus_freeverb_filter.setParams(0, 0.5f, 0.5f, 1);
+        bus_echo_filter.setParams(0.300f);
+    }
+
+    SFXRSoundEffect(const SFXRSoundEffect &) = delete;
+    SFXRSoundEffect &operator=(const SFXRSoundEffect &) = delete;
+
+    void random_seed(const int &index) { seeds[index] = rand_(rd_); }
 };
 
 int main(int argc, char **argv)
@@ -67,9 +112,6 @@ int main(int argc, char **argv)
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer_Init(renderer);
 
-    std::random_device rd;
-    std::uniform_int_distribution rand(INT_MIN, INT_MAX);
-
     SoLoud::Soloud soloud;
     soloud.init();
     soloud.setVisualizationEnable(true);
@@ -87,27 +129,8 @@ int main(int argc, char **argv)
 
     Speech speech;
 
-    constexpr size_t sfxr_count = 8;
-    SoLoud::Sfxr sfxrs[sfxr_count] = {};
-    SoLoud::Sfxr::SFXR_PRESETS sfxr_presets[sfxr_count] = {SoLoud::Sfxr::COIN};
-    int sfxr_seeds[sfxr_count] = {rand(rd), rand(rd), rand(rd), rand(rd), rand(rd), rand(rd), rand(rd), rand(rd)};
-    SoLoud::LofiFilter sfxr_lofi;
-    sfxr_lofi.setParams(8000, 4);
-    bool sfxr_lofi_enables[sfxr_count] = {false, false, false, false, false, false, false, false};
-
-    SoLoud::Bus sfxr_bus;
-    auto sfxr_bus_handle = soloud.play(sfxr_bus);
-    float sfxr_bus_volume = 1.0f;
-
-    SoLoud::FreeverbFilter sfxr_bus_freeverb;
-    sfxr_bus_freeverb.setParams(0, 0.5f, 0.5f, 1);
-    bool sfxr_bus_freeverb_enabled = false;
-
-    SoLoud::EchoFilter sfxr_bus_echo;
-    sfxr_bus_echo.setParams(0.300f);
-    bool sfxr_bus_echo_enabled = false;
-
-    float sfxr_x_pos = 0.0f, sfxr_y_pos = 0.0f, sfxr_z_pos = 0.0f;
+    SFXRSoundEffect sfxr;
+    sfxr.bus_handle = soloud.play(sfxr.bus);
 
     bool use_controller = false;
     SDL_GameController *controller = nullptr;
@@ -144,64 +167,57 @@ int main(int argc, char **argv)
 
         if (use_controller)
         {
-            sfxr_x_pos = static_cast<float>(joystick.x_axis) / static_cast<float>(SDL_MAX_SINT16);
-            sfxr_y_pos = static_cast<float>(joystick.y_axis) / static_cast<float>(SDL_MAX_SINT16);
-            sfxr_z_pos = static_cast<float>(joystick.z_axis) / static_cast<float>(SDL_MAX_SINT16);
+            sfxr.position_x = static_cast<float>(joystick.x_axis) / static_cast<float>(SDL_MAX_SINT16);
+            sfxr.position_y = static_cast<float>(joystick.y_axis) / static_cast<float>(SDL_MAX_SINT16);
+            sfxr.position_z = static_cast<float>(joystick.z_axis) / static_cast<float>(SDL_MAX_SINT16);
+
+            int index = SFXRSoundEffect::count;
 
             if (joystick.is_a_pressed)
             {
-                sfxrs[0].loadPreset(sfxr_presets[0], sfxr_seeds[0]);
-                sfxrs[0].setFilter(0, sfxr_lofi_enables[0] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[0], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 0;
             }
 
-            if (joystick.is_b_pressed)
+            else if (joystick.is_b_pressed)
             {
-                sfxrs[1].loadPreset(sfxr_presets[1], sfxr_seeds[1]);
-                sfxrs[1].setFilter(0, sfxr_lofi_enables[1] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[1], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 1;
             }
 
-            if (joystick.is_x_pressed)
+            else if (joystick.is_x_pressed)
             {
-                sfxrs[2].loadPreset(sfxr_presets[2], sfxr_seeds[2]);
-                sfxrs[2].setFilter(0, sfxr_lofi_enables[2] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[2], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 2;
             }
 
-            if (joystick.is_y_pressed)
+            else if (joystick.is_y_pressed)
             {
-                sfxrs[3].loadPreset(sfxr_presets[3], sfxr_seeds[3]);
-                sfxrs[3].setFilter(0, sfxr_lofi_enables[3] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[3], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 3;
             }
 
-            if (joystick.is_u_pressed)
+            else if (joystick.is_u_pressed)
             {
-                sfxrs[4].loadPreset(sfxr_presets[4], sfxr_seeds[4]);
-                sfxrs[4].setFilter(0, sfxr_lofi_enables[4] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[4], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 4;
             }
 
-            if (joystick.is_d_pressed)
+            else if (joystick.is_d_pressed)
             {
-                sfxrs[5].loadPreset(sfxr_presets[5], sfxr_seeds[5]);
-                sfxrs[5].setFilter(0, sfxr_lofi_enables[5] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[5], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 5;
             }
 
-            if (joystick.is_l_pressed)
+            else if (joystick.is_l_pressed)
             {
-                sfxrs[6].loadPreset(sfxr_presets[6], sfxr_seeds[6]);
-                sfxrs[6].setFilter(0, sfxr_lofi_enables[6] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[6], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 6;
             }
 
-            if (joystick.is_r_pressed)
+            else if (joystick.is_r_pressed)
             {
-                sfxrs[7].loadPreset(sfxr_presets[7], sfxr_seeds[7]);
-                sfxrs[7].setFilter(0, sfxr_lofi_enables[7] ? &sfxr_lofi : nullptr);
-                sfxr_bus.play3d(sfxrs[7], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                index = 7;
+            }
+
+            if (index != SFXRSoundEffect::count)
+            {
+                sfxr.sources[index].loadPreset(sfxr.presets[index], sfxr.seeds[index]);
+                sfxr.sources[index].setFilter(0, sfxr.lofi_enableds[index] ? &sfxr.lofi_filter : nullptr);
+                sfxr.bus.play3d(sfxr.sources[index], sfxr.position_x, sfxr.position_y, sfxr.position_z);
             }
         }
 
@@ -213,8 +229,6 @@ int main(int argc, char **argv)
         {
             ImGui::Begin("BGM");
             {
-                ImGui::NewLine();
-
                 ImGui::SameLine();
                 if (ImGui::Button("Open"))
                 {
@@ -224,7 +238,7 @@ int main(int argc, char **argv)
                 if (ImGui::Button("Play"))
                 {
                     soloud.stop(bgm.handle);
-                    bgm.handle = soloud.play(bgm.stream);
+                    bgm.handle = soloud.play(bgm.source);
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Stop"))
@@ -251,7 +265,7 @@ int main(int argc, char **argv)
                 ImGui::SameLine();
                 if (ImGui::Button("Play"))
                 {
-                    soloud.play3d(sfx.wav, sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                    soloud.play3d(sfx.source, sfxr.position_x, sfxr.position_y, sfxr.position_z);
                 }
                 ImGui::LabelText("Filename", "%s", sfx.file.path().u8string().c_str());
             }
@@ -322,26 +336,28 @@ int main(int argc, char **argv)
 
             ImGui::Begin("Sfxr");
             {
-                if (ImGui::SliderFloat("Volume", &sfxr_bus_volume, 0.0f, 1.0f))
+                if (ImGui::SliderFloat("Volume", &sfxr.bus_volume, 0.0f, 1.0f))
                 {
-                    soloud.setVolume(sfxr_bus_handle, sfxr_bus_volume);
+                    soloud.setVolume(sfxr.bus_handle, sfxr.bus_volume);
                 }
 
-                if (ImGui::Checkbox("Echo", &sfxr_bus_echo_enabled))
+                if (ImGui::Checkbox("Echo", &sfxr.bus_echo_enabled))
                 {
-                    sfxr_bus.setFilter(0, sfxr_bus_echo_enabled ? &sfxr_bus_echo : nullptr);
+                    sfxr.bus.setFilter(0, sfxr.bus_echo_enabled ? &sfxr.bus_echo_filter : nullptr);
                 }
 
-                if (ImGui::Checkbox("Reverb", &sfxr_bus_freeverb_enabled))
+                if (ImGui::Checkbox("Reverb", &sfxr.bus_freeverb_enabled))
                 {
-                    sfxr_bus.setFilter(1, sfxr_bus_freeverb_enabled ? &sfxr_bus_freeverb : nullptr);
+                    sfxr.bus.setFilter(1, sfxr.bus_freeverb_enabled ? &sfxr.bus_freeverb_filter : nullptr);
                 }
 
-                ImGui::SliderFloat("X", &sfxr_x_pos, -1.0f, 1.0f);
-                ImGui::SliderFloat("Y", &sfxr_y_pos, -1.0f, 1.0f);
-                ImGui::SliderFloat("Z", &sfxr_z_pos, -1.0f, 1.0f);
+                ImGui::Text("Position");
 
-                constexpr const char sfxr_header_texts[sfxr_count][34]{
+                ImGui::SliderFloat("X", &sfxr.position_x, -1.0f, 1.0f);
+                ImGui::SliderFloat("Y", &sfxr.position_y, -1.0f, 1.0f);
+                ImGui::SliderFloat("Z", &sfxr.position_z, -1.0f, 1.0f);
+
+                constexpr char sfxr_header_texts[SFXRSoundEffect::count][34]{
                     "SFXR #1 - Controller A Button",    "SFXR #2 - Controller B Button",
                     "SFXR #3 - Controller X Button",    "SFXR #4 - Controller Y Button",
                     "SFXR #5 - Controller UP Button",   "SFXR #6 - Controller Down Button",
@@ -351,62 +367,62 @@ int main(int argc, char **argv)
                 {
                     ImGui::Checkbox("Use Controller", &use_controller);
                 }
-                for (size_t i = 0; i < sfxr_count; i++)
+                for (size_t i = 0; i < SFXRSoundEffect::count; i++)
                 {
                     if (ImGui::CollapsingHeader(sfxr_header_texts[i]))
                     {
                         if (ImGui::Button(std::format("Play ##{}", i).c_str()))
                         {
-                            sfxrs[i].loadPreset(sfxr_presets[i], sfxr_seeds[i]);
-                            sfxrs[i].setFilter(0, sfxr_lofi_enables[i] ? &sfxr_lofi : nullptr);
-                            sfxr_bus.play3d(sfxrs[i], sfxr_x_pos, sfxr_y_pos, sfxr_z_pos);
+                            sfxr.sources[i].loadPreset(sfxr.presets[i], sfxr.seeds[i]);
+                            sfxr.sources[i].setFilter(0, sfxr.lofi_enableds[i] ? &sfxr.lofi_filter : nullptr);
+                            sfxr.bus.play3d(sfxr.sources[i], sfxr.position_x, sfxr.position_y, sfxr.position_z);
                         }
 
                         if (ImGui::CollapsingHeader(std::format("Preset ##{}", i).c_str()))
                         {
-                            if (ImGui::RadioButton("Coin", sfxr_presets[i] == SoLoud::Sfxr::COIN))
+                            if (ImGui::RadioButton("Coin", sfxr.presets[i] == SoLoud::Sfxr::COIN))
                             {
-                                sfxr_presets[i] = SoLoud::Sfxr::COIN;
+                                sfxr.presets[i] = SoLoud::Sfxr::COIN;
                             }
 
-                            if (ImGui::RadioButton("Laser", sfxr_presets[i] == SoLoud::Sfxr::LASER))
+                            if (ImGui::RadioButton("Laser", sfxr.presets[i] == SoLoud::Sfxr::LASER))
                             {
-                                sfxr_presets[i] = SoLoud::Sfxr::LASER;
+                                sfxr.presets[i] = SoLoud::Sfxr::LASER;
                             }
 
-                            if (ImGui::RadioButton("Explosion", sfxr_presets[i] == SoLoud::Sfxr::EXPLOSION))
+                            if (ImGui::RadioButton("Explosion", sfxr.presets[i] == SoLoud::Sfxr::EXPLOSION))
                             {
-                                sfxr_presets[i] = SoLoud::Sfxr::EXPLOSION;
+                                sfxr.presets[i] = SoLoud::Sfxr::EXPLOSION;
                             }
 
-                            if (ImGui::RadioButton("Power Up", sfxr_presets[i] == SoLoud::Sfxr::POWERUP))
+                            if (ImGui::RadioButton("Power Up", sfxr.presets[i] == SoLoud::Sfxr::POWERUP))
                             {
-                                sfxr_presets[i] = SoLoud::Sfxr::POWERUP;
+                                sfxr.presets[i] = SoLoud::Sfxr::POWERUP;
                             }
 
-                            if (ImGui::RadioButton("Hurt", sfxr_presets[i] == SoLoud::Sfxr::HURT))
+                            if (ImGui::RadioButton("Hurt", sfxr.presets[i] == SoLoud::Sfxr::HURT))
                             {
-                                sfxr_presets[i] = SoLoud::Sfxr::HURT;
+                                sfxr.presets[i] = SoLoud::Sfxr::HURT;
                             }
 
-                            if (ImGui::RadioButton("Jump", sfxr_presets[i] == SoLoud::Sfxr::JUMP))
+                            if (ImGui::RadioButton("Jump", sfxr.presets[i] == SoLoud::Sfxr::JUMP))
                             {
-                                sfxr_presets[i] = SoLoud::Sfxr::JUMP;
+                                sfxr.presets[i] = SoLoud::Sfxr::JUMP;
                             }
 
-                            if (ImGui::RadioButton("Blip", sfxr_presets[i] == SoLoud::Sfxr::BLIP))
+                            if (ImGui::RadioButton("Blip", sfxr.presets[i] == SoLoud::Sfxr::BLIP))
                             {
-                                sfxr_presets[i] = SoLoud::Sfxr::BLIP;
+                                sfxr.presets[i] = SoLoud::Sfxr::BLIP;
                             }
                         }
 
-                        ImGui::InputInt(std::format("Seed Number ##{}", i).c_str(), &sfxr_seeds[i]);
+                        ImGui::InputInt(std::format("Seed Number ##{}", i).c_str(), &sfxr.seeds[i]);
                         if (ImGui::Button(std::format("Random ##{}", i).c_str()))
                         {
-                            sfxr_seeds[i] = rand(rd);
+                            sfxr.random_seed(i);
                         }
 
-                        ImGui::Checkbox(std::format("Lo-Fi ##{}", i).c_str(), &sfxr_lofi_enables[i]);
+                        ImGui::Checkbox(std::format("Lo-Fi ##{}", i).c_str(), &sfxr.lofi_enableds[i]);
                     }
                 }
             }
@@ -420,12 +436,12 @@ int main(int argc, char **argv)
             bgm_file_browser.Display();
             if (bgm_file_browser.HasSelected())
             {
-                soloud.stopAudioSource(bgm.stream);
+                soloud.stopAudioSource(bgm.source);
 
                 auto path = bgm_file_browser.GetSelected();
                 bgm.file.open(path);
 
-                bgm.stream.loadFile(&bgm.file);
+                bgm.source.loadFile(&bgm.file);
                 bgm_file_browser.ClearSelected();
             }
 
@@ -434,7 +450,7 @@ int main(int argc, char **argv)
             {
                 auto path = sfx_file_browser.GetSelected();
                 sfx.file.open(path);
-                sfx.wav.loadFile(&sfx.file);
+                sfx.source.loadFile(&sfx.file);
                 sfx_file_browser.ClearSelected();
             }
         }
