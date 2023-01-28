@@ -8,7 +8,6 @@
 
 #include <soloud.h>
 #include <soloud_echofilter.h>
-#include <soloud_file.h>
 #include <soloud_freeverbfilter.h>
 #include <soloud_lofifilter.h>
 #include <soloud_sfxr.h>
@@ -16,66 +15,9 @@
 #include <soloud_wav.h>
 #include <soloud_wavstream.h>
 
-#include <filesystem>
-#include <fstream>
 #include <random>
 
-class FileSystemFile : public SoLoud::File
-{
-public:
-    FileSystemFile() = default;
-    FileSystemFile(const FileSystemFile &) = delete;
-    FileSystemFile &operator=(const FileSystemFile &) = delete;
-
-    void open(std::filesystem::path path);
-    void close();
-
-    std::filesystem::path &path() { return path_; }
-
-    int eof() override;
-    unsigned int read(unsigned char *aDst, unsigned int aBytes) override;
-    unsigned int length() override;
-    void seek(int aOffset) override;
-    unsigned int pos() override;
-
-private:
-    std::basic_ifstream<unsigned char> stream_;
-    std::filesystem::path path_;
-};
-
-void FileSystemFile::open(const std::filesystem::path path)
-{
-    if (stream_.is_open())
-    {
-        close();
-    }
-    path_ = path;
-    stream_.open(path, std::ios::in | std::ios::binary);
-
-    stream_.seekg(0, std::ios::beg);
-}
-
-void FileSystemFile::close() { stream_.close(); }
-
-int FileSystemFile::eof() { return stream_.eof(); }
-
-unsigned int FileSystemFile::read(unsigned char *aDst, unsigned int aBytes)
-{
-    stream_.read(aDst, aBytes);
-    if (stream_.eof())
-    {
-        return static_cast<unsigned int>(stream_.gcount());
-    }
-    return aBytes;
-}
-
-unsigned int FileSystemFile::length() { return static_cast<unsigned int>(std::filesystem::file_size(path_)); }
-
-void FileSystemFile::seek(int aOffset) { stream_.seekg(aOffset); }
-
-unsigned int FileSystemFile::pos() { return static_cast<unsigned int>(stream_.tellg()); }
-
-constexpr size_t text_size = 1000;
+#include "filesystemfile.hpp"
 
 int main(int argc, char **argv)
 {
@@ -94,7 +36,6 @@ int main(int argc, char **argv)
     ImGui_ImplSDLRenderer_Init(renderer);
 
     std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution rand(INT_MIN, INT_MAX);
 
     SoLoud::Soloud soloud;
@@ -119,6 +60,7 @@ int main(int argc, char **argv)
     SoLoud::handle speech_handle = 0;
     float speech_volume = 1.0f;
     float speech_pan = 0.0f;
+    constexpr size_t text_size = 1000;
     char speech_text[text_size]{};
     unsigned int speech_base_freq = 1330;
     float speech_base_speed = 10;
