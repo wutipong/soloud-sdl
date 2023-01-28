@@ -93,8 +93,6 @@ int main(int argc, char **argv)
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer_Init(renderer);
 
-    std::srand(static_cast<unsigned>(std::time(nullptr)));
-
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution rand(INT_MIN, INT_MAX);
